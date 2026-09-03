@@ -1,0 +1,47 @@
+# 개요
+
+Doran은 미팅 녹음 파일을 올리면 전사본과 요약 노트를 만들어 주는 개인용 웹 앱입니다.
+
+## 범위와 전제
+
+- 로컬 또는 Tailscale 네트워크 안에서 한 사람이 사용합니다. 인증과 로그인은 없고, 모든 API는 무방비입니다. 공개 인터넷에 노출하지 않는 것이 전제입니다.
+- 사용자 한 명, 서버 프로세스 하나를 가정합니다. 동시성 제어는 이 전제 안에서만 고려합니다.
+- 요약 노트 생성(전사본 + 용어 사전 → 노트)은 아직 구현하지 않았습니다. UI에는 자리만 있습니다.
+
+## 스택
+
+- Next.js 16 App Router, React 19, TypeScript, Tailwind v4
+- 저장소: Node 24 내장 `node:sqlite` + 로컬 파일 시스템
+- 전사: OpenRouter `/api/v1/audio/transcriptions` (기본 모델 `openai/gpt-transcribe`)
+- 아이콘: lucide-react
+- 린터/포매터: oxlint, oxfmt
+- 패키지 매니저: pnpm
+
+## 외부 도구 의존
+
+- `ffmpeg`, `ffprobe`가 PATH에 있어야 25MB를 넘는 녹음을 전사할 수 있습니다. 없으면 작은 파일만 단일 요청으로 처리하고, 큰 파일은 실패 메시지를 남깁니다.
+
+## 실행
+
+```sh
+pnpm dev        # 0.0.0.0:3000 바인딩, Tailscale 접근 가능
+pnpm build && pnpm start
+pnpm lint       # oxlint
+pnpm format     # oxfmt (--check는 format:check)
+pnpm typecheck  # tsc --noEmit
+```
+
+## 환경 변수
+
+`.env`에 둡니다. 템플릿은 `.env.example`입니다.
+
+| 변수                             | 필수   | 설명                                                                                     |
+| -------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`             | 예     | OpenRouter API 키                                                                        |
+| `OPENROUTER_TRANSCRIBE_MODEL`    | 아니오 | 전사 모델 ID. 기본값 `openai/gpt-transcribe`                                             |
+| `OPENROUTER_TRANSCRIBE_LANGUAGE` | 아니오 | ISO 639-1 언어 코드. 비우면 자동 감지                                                    |
+| `ALLOWED_DEV_ORIGINS`            | 아니오 | dev 서버에 localhost 외 호스트명으로 접속할 때 쉼표로 나열 (예: Tailscale MagicDNS 이름) |
+
+## 데이터 위치
+
+`data/` 아래에 SQLite DB와 원본 녹음이 저장되며 git에서 제외됩니다. 자세한 구조는 [data-model.md](data-model.md)를 참고합니다.
