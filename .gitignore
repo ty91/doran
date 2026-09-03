@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# app data (sqlite + uploaded audio)
+/data
+
+# keep the env template
+!.env.example

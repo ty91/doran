@@ -1,0 +1,5 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "ignorePatterns": [".next/", "node_modules/", "next-env.d.ts", "data/", "pnpm-lock.yaml"],
+}

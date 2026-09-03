@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "nextjs", "jsx-a11y", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "jsx-a11y/media-has-caption": "off",
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }]
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2024": true
+  },
+  "ignorePatterns": [".next/", "node_modules/", "next-env.d.ts", "data/"]
+}
