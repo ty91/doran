@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { AudioLines, Settings } from "lucide-react";
+import { AudioLines } from "lucide-react";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,37 +26,31 @@ export const metadata: Metadata = {
   description: "녹음 파일로 미팅 노트를 만드는 개인용 앱",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const cookieStore = await cookies();
+  const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
   return (
     <html lang="ko" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">
-        <header className="border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
-          <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-4">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
-            >
-              <AudioLines className="size-5" aria-hidden />
-              Doran
-            </Link>
-            <nav className="flex items-center gap-1 text-sm">
-              <Link
-                href="/"
-                className="rounded-md px-3 py-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
-              >
-                미팅
-              </Link>
-              <Link
-                href="/settings"
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
-              >
-                <Settings className="size-4" aria-hidden />
-                설정
-              </Link>
-            </nav>
-          </div>
-        </header>
-        <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">{children}</main>
+      <body className="min-h-full">
+        <TooltipProvider>
+          <SidebarProvider defaultOpen={sidebarOpen}>
+            <AppSidebar />
+            <SidebarInset>
+              <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger />
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 text-base font-semibold tracking-tight md:hidden"
+                >
+                  <AudioLines className="size-5" aria-hidden />
+                  Doran
+                </Link>
+              </header>
+              <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">{children}</main>
+            </SidebarInset>
+          </SidebarProvider>
+        </TooltipProvider>
       </body>
     </html>
   );

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, RefreshCw } from "lucide-react";
-import { TranscriptionBadge } from "@/components/transcription-badge";
+import { FileText, Loader2, RefreshCw } from "lucide-react";
 import type { Meeting, TranscriptionStatus } from "@/lib/types";
 
 const pollIntervalMs = 3000;
@@ -61,8 +60,8 @@ export function TranscriptPanel({ meeting }: { meeting: Meeting }) {
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <FileText className="size-5 text-zinc-400" aria-hidden />
           전사본
-          <TranscriptionBadge transcription={meeting.transcription} />
         </h2>
         {!isActive(status) && (
           <button

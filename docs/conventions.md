@@ -16,10 +16,11 @@
 
 ## 코드 스타일
 
-- 소스 코드에 주석을 쓰지 않습니다. 설명이 필요하면 이름을 바꾸거나 이 문서에 적습니다.
+- 소스 코드에 주석을 쓰지 않습니다. 설명이 필요하면 이름을 바꾸거나 이 문서에 적습니다. `src/components/ui`는 shadcn이 생성한 파일이라 예외이며, 나중에 CLI로 갱신할 수 있도록 손대지 않습니다. 단 `src/hooks/use-mobile.ts`는 이 저장소의 `react/set-state-in-effect` 규칙에 맞춰 `useSyncExternalStore`로 다시 썼습니다.
 - UI 문구와 서버가 만드는 오류 메시지는 한국어로 씁니다. 로그와 식별자는 영어입니다.
 - 아이콘은 `lucide-react`만 씁니다. 장식용 아이콘에는 `aria-hidden`을 붙입니다.
-- 색상은 Tailwind zinc 팔레트를 기본으로 하고 `dark:` 변형을 항상 함께 둡니다.
+- 색상은 Tailwind zinc 팔레트를 기본으로 하고 `dark:` 변형을 항상 함께 둡니다. shadcn 컴포넌트는 `globals.css`의 시맨틱 토큰(`background`, `muted`, `sidebar` 등)을 씁니다.
+- 다크 모드는 `prefers-color-scheme`만 따릅니다. shadcn 기본값인 `.dark` 클래스 방식은 쓰지 않으며, 토큰의 다크 값도 `@media (prefers-color-scheme: dark)` 안에 둡니다. 테마 토글을 넣지 않기 위한 결정입니다.
 
 ## 반복되는 패턴
 

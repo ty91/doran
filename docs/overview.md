@@ -11,6 +11,7 @@ Doran은 미팅 녹음 파일을 올리면 전사본과 요약 노트를 만들�
 ## 스택
 
 - Next.js 16 App Router, React 19, TypeScript, Tailwind v4
+- UI 컴포넌트: shadcn (Base UI 기반, `nova` 프리셋). 생성된 파일은 `src/components/ui`에 둡니다
 - 저장소: Node 24 내장 `node:sqlite` + 로컬 파일 시스템
 - 전사: OpenRouter `/api/v1/audio/transcriptions` (기본 모델 `openai/gpt-transcribe`)
 - 아이콘: lucide-react
