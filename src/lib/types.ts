@@ -11,6 +11,19 @@ export type TranscriptionState = {
   progress: TranscriptionProgress | null;
 };
 
+export type SummaryStatus = "idle" | "generating" | "done" | "failed";
+
+export type SummaryState = {
+  status: SummaryStatus;
+  error: string | null;
+};
+
+export type SummaryVersion = {
+  version: number;
+  model: string | null;
+  createdAt: string;
+};
+
 export type Meeting = {
   id: string;
   title: string;
@@ -25,6 +38,7 @@ export type Meeting = {
   transcript: string | null;
   transcription: TranscriptionState;
   summary: string | null;
+  summarization: SummaryState;
   createdAt: string;
   updatedAt: string;
 };

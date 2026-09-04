@@ -10,6 +10,7 @@
 | `POST /api/meetings`                 | 녹음 업로드 → 미팅 생성 → 전사 시작                                                       |
 | `GET /api/meetings/[id]`             | 미팅 JSON. 클라이언트 폴링용                                                              |
 | `POST /api/meetings/[id]/transcribe` | 전사 재실행                                                                               |
+| `POST /api/meetings/[id]/summarize`  | 요약 노트 생성/재생성. 전사가 `done`이 아니면 409                                         |
 | `GET /api/meetings/[id]/audio`       | 녹음 스트리밍. Range 요청 지원                                                            |
 
 페이지는 모두 `force-dynamic`입니다. 데이터가 요청마다 로컬 DB에서 읽히므로 정적 프리렌더를 쓰지 않습니다.
@@ -18,7 +19,7 @@
 
 - 루트 레이아웃이 shadcn `SidebarProvider` + `AppSidebar`(`src/components/app-sidebar.tsx`) + `SidebarInset`으로 화면을 나눕니다. 사이드바 항목은 미팅(`/`, `/meetings/*`)과 설정(`/settings`) 둘뿐이며 `usePathname`으로 활성 항목을 표시합니다.
 - 사이드바 열림 상태는 shadcn 기본 동작대로 `sidebar_state` 쿠키에 저장되고, 루트 레이아웃이 `cookies()`로 읽어 첫 렌더부터 같은 상태로 그립니다.
-- 미팅 상세의 전사본 탭은 `keepMounted`로 항상 마운트해 둡니다. 노트 탭을 보고 있어도 전사 상태 폴링이 계속 돌아 탭 라벨의 상태 배지가 갱신되게 하기 위해서입니다.
+- 미팅 상세의 두 탭은 모두 `keepMounted`로 항상 마운트해 둡니다. 다른 탭을 보고 있어도 전사/노트 상태 폴링이 계속 돌아 완료 시 화면이 갱신되게 하기 위해서입니다.
 
 ## 변경 경로의 경계
 
@@ -35,6 +36,16 @@
 
 분할하는 이유: OpenRouter는 요청 본문을 50MB로 제한하며, base64 JSON으로 큰 파일을 보내면 413으로 거부됩니다. 수 시간짜리 녹음이 흔하므로 분할이 기본 경로입니다.
 
+## 요약 노트 파이프라인
+
+1. 노트 탭의 "노트 생성" 버튼이 `POST /api/meetings/[id]/summarize`를 호출합니다. 라우트는 전사 완료 여부와 진행 중 여부를 확인한 뒤 `after()`로 `runSummary(id)`를 예약합니다.
+2. `runSummary`는 상태를 `generating`으로 바꾸고, 시스템 프롬프트(`summary-prompt.ts`)와 미팅 정보 + 용어 사전 + 전사본을 담은 사용자 메시지로 OpenRouter chat completions를 한 번 호출합니다. 재시도는 하지 않습니다. 실패하면 사용자가 버튼으로 다시 시도합니다.
+3. 응답이 코드 펜스로 감싸져 오면 벗겨낸 뒤 `summary_versions`에 새 버전(v1, v2, …)으로 추가하고 상태를 `done`으로 바꿉니다. 실패하면 `failed`와 오류 메시지를 저장합니다.
+4. 노트 탭의 클라이언트 컴포넌트가 `generating` 동안 3초마다 폴링하다가 상태가 바뀌면 `?v` 없는 URL로 바꾸고 `router.refresh()`해 최신 버전을 보여줍니다. 노트 본문은 서버 컴포넌트에서 마크다운으로 렌더링해 children으로 넘깁니다.
+5. 이전 버전은 `/meetings/[id]?v=N`으로 봅니다. 없는 버전이나 잘못된 값이면 최신 버전으로 처리합니다. 버전 선택을 URL에 두는 이유는 서버 컴포넌트가 선택된 버전만 읽어 렌더링하게 하고, 특정 버전을 링크로 공유할 수 있게 하기 위해서입니다.
+
+프롬프트는 노트를 `#### 개요` + `#### 주제` 섹션과 `*` 불릿, 명사형 종결로 고정합니다. 용어 사전은 STT 오인식을 바로잡는 표기 기준으로만 쓰고, 참석자 이름은 맥락으로 확신할 때만 붙이도록 합니다. 전사본에 화자 구분이 없기 때문입니다.
+
 ## 전사 상태 전이
 
 ```
@@ -43,19 +54,30 @@ pending → transcribing → done
 ```
 
 - `transcribing` 상태에서는 재실행 요청을 409로 거부합니다.
-- 서버가 재시작되면 진행 중이던 작업은 사라집니다. DB를 여는 시점에 `transcribing` 행을 모두 `failed`로 바꾸고 재실행을 안내하는 오류 메시지를 넣습니다. 별도 작업 큐를 두지 않는 대신 이 복구 규칙으로 감당합니다.
+- 서버가 재시작되면 진행 중이던 작업은 사라집니다. DB를 여는 시점에 `transcribing` 행과 `generating` 행을 모두 `failed`로 바꾸고 재실행을 안내하는 오류 메시지를 넣습니다. 별도 작업 큐를 두지 않는 대신 이 복구 규칙으로 감당합니다.
+
+## 요약 상태 전이
+
+```
+idle → generating → done → (다시 생성) → generating
+                  → failed → (다시 생성) → generating
+```
+
+`generating` 상태에서는 생성 요청을 409로 거부합니다. `done`에서 다시 생성하면 새 버전이 추가되고 이전 버전은 그대로 남습니다.
 
 ## 모듈 책임 (`src/lib`)
 
-| 파일               | 책임                                                                  |
-| ------------------ | --------------------------------------------------------------------- |
-| `paths.ts`         | `data/` 하위 경로 상수                                                |
-| `db.ts`            | SQLite 연결 싱글턴, 스키마 생성, 마이그레이션, 재시작 복구            |
-| `meetings.ts`      | 미팅 CRUD와 전사 상태/진행률 갱신. 행 ↔ 도메인 객체 변환              |
-| `settings.ts`      | 용어 사전 읽기/쓰기                                                   |
-| `audio.ts`         | 확장자 판별, MIME/전사 포맷 매핑, 파일명에서 제목 추출, 저장 경로     |
-| `audio-chunks.ts`  | ffmpeg 실행과 조각 파일 관리                                          |
-| `transcription.ts` | OpenRouter 호출, 재시도, 병렬 처리, `runTranscription` 오케스트레이션 |
-| `types.ts`         | `Meeting`, 전사 상태 타입                                             |
+| 파일                | 책임                                                                  |
+| ------------------- | --------------------------------------------------------------------- |
+| `paths.ts`          | `data/` 하위 경로 상수                                                |
+| `db.ts`             | SQLite 연결 싱글턴, 스키마 생성, 마이그레이션, 재시작 복구            |
+| `meetings.ts`       | 미팅 CRUD와 전사 상태/진행률 갱신. 행 ↔ 도메인 객체 변환              |
+| `settings.ts`       | 용어 사전 읽기/쓰기                                                   |
+| `summary-prompt.ts` | 요약 노트 시스템 프롬프트와 사용자 메시지 조립                        |
+| `summary.ts`        | OpenRouter chat completions 호출, `runSummary` 오케스트레이션         |
+| `audio.ts`          | 확장자 판별, MIME/전사 포맷 매핑, 파일명에서 제목 추출, 저장 경로     |
+| `audio-chunks.ts`   | ffmpeg 실행과 조각 파일 관리                                          |
+| `transcription.ts`  | OpenRouter 호출, 재시도, 병렬 처리, `runTranscription` 오케스트레이션 |
+| `types.ts`          | `Meeting`, 전사 상태 타입                                             |
 
 공용 UI는 `src/components`에 있습니다. `TagInput`은 참여자와 용어 사전이 같이 씁니다.

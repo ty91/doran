@@ -33,7 +33,9 @@ Node 24에 내장되어 네이티브 빌드가 필요 없고, pnpm의 빌드 스
 | `transcription_status`     | TEXT    | `pending` / `transcribing` / `done` / `failed`          |
 | `transcription_error`      | TEXT    | 실패 메시지                                             |
 | `transcription_progress`   | TEXT    | JSON `{ "done": n, "total": m }`. 전사 중에만 의미 있음 |
-| `summary`                  | TEXT    | 요약 노트. 아직 쓰지 않음                               |
+| `summary`                  | TEXT    | 최신 요약 노트 내용의 복사본. `summary_versions`가 원본 |
+| `summary_status`           | TEXT    | `idle` / `generating` / `done` / `failed`               |
+| `summary_error`            | TEXT    | 노트 생성 실패 메시지                                   |
 | `created_at`, `updated_at` | TEXT    | ISO 8601                                                |
 
 인덱스: `(meeting_date DESC, created_at DESC)`. 목록 정렬 순서와 같습니다.
@@ -42,12 +44,26 @@ Node 24에 내장되어 네이티브 빌드가 필요 없고, pnpm의 빌드 스
 
 키-값 테이블입니다. 현재 키는 `glossary` 하나이며 값은 JSON 문자열 배열입니다.
 
+### summary_versions
+
+요약 노트의 버전 이력입니다. 노트를 다시 생성할 때마다 덮어쓰지 않고 행을 추가합니다.
+
+| 컬럼         | 타입    | 설명                                                            |
+| ------------ | ------- | --------------------------------------------------------------- |
+| `meeting_id` | TEXT    | `meetings.id` 참조. 미팅 삭제 시 함께 삭제(`ON DELETE CASCADE`) |
+| `version`    | INTEGER | 미팅별 1부터 증가. `(meeting_id, version)`이 PK                 |
+| `content`    | TEXT    | 노트 마크다운                                                   |
+| `model`      | TEXT    | 생성에 쓴 모델 ID. 마이그레이션으로 옮긴 행은 NULL              |
+| `created_at` | TEXT    | ISO 8601                                                        |
+
+`meetings.summary`를 없애지 않고 최신 버전의 복사본으로 유지합니다. 컬럼 삭제를 지원하지 않는 마이그레이션 방식과, 미팅 한 행만 읽어도 노트 유무를 알 수 있게 하려는 이유입니다. 새 버전 추가와 복사본 갱신은 한 트랜잭션에서 처리합니다.
+
 ## 마이그레이션
 
 전용 마이그레이션 도구 없이 `src/lib/db.ts`에서 처리합니다.
 
 1. `CREATE TABLE IF NOT EXISTS`로 최신 스키마를 만듭니다. 새 DB는 이것으로 끝납니다.
-2. 기존 DB에 컬럼을 추가할 때는 `PRAGMA table_info`로 존재 여부를 확인한 뒤 `ALTER TABLE ... ADD COLUMN`을 실행합니다. 이 코드를 `migrate()`에 누적합니다.
+2. 기존 DB에 컬럼을 추가할 때는 `PRAGMA table_info`로 존재 여부를 확인한 뒤 `ALTER TABLE ... ADD COLUMN`을 실행합니다. 데이터 이전이 필요하면 멱등한 `INSERT ... SELECT ... WHERE NOT IN`으로 씁니다. 이 코드를 `migrate()`에 누적합니다.
 3. `schemaVersion` 상수를 올립니다. 연결 싱글턴이 `globalThis`에 버전별 키로 저장되므로, dev 서버가 HMR로 모듈을 다시 읽어도 새 연결을 열어 마이그레이션이 실행됩니다.
 
 컬럼 삭제나 타입 변경이 필요해지면 그때 방식을 다시 정합니다. 지금은 추가만 지원합니다.

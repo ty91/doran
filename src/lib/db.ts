@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS meetings (
   transcription_error TEXT,
   transcription_progress TEXT,
   summary TEXT,
+  summary_status TEXT NOT NULL DEFAULT 'idle',
+  summary_error TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -27,6 +29,15 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS summary_versions (
+  meeting_id TEXT NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  model TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (meeting_id, version)
+);
 `;
 
 function migrate(db: DatabaseSync): void {
@@ -34,12 +45,24 @@ function migrate(db: DatabaseSync): void {
   if (!columns.some((column) => column.name === "transcription_progress")) {
     db.exec("ALTER TABLE meetings ADD COLUMN transcription_progress TEXT");
   }
+  if (!columns.some((column) => column.name === "summary_status")) {
+    db.exec("ALTER TABLE meetings ADD COLUMN summary_status TEXT NOT NULL DEFAULT 'idle'");
+  }
+  if (!columns.some((column) => column.name === "summary_error")) {
+    db.exec("ALTER TABLE meetings ADD COLUMN summary_error TEXT");
+  }
+  db.exec(
+    "INSERT INTO summary_versions (meeting_id, version, content, model, created_at) SELECT id, 1, summary, NULL, updated_at FROM meetings WHERE summary IS NOT NULL AND id NOT IN (SELECT meeting_id FROM summary_versions)",
+  );
 }
 
-function resetInterruptedTranscriptions(db: DatabaseSync): void {
+function resetInterruptedJobs(db: DatabaseSync): void {
   db.prepare(
     "UPDATE meetings SET transcription_status = 'failed', transcription_error = ?, transcription_progress = NULL WHERE transcription_status = 'transcribing'",
   ).run("서버가 재시작되어 전사가 중단되었습니다. 다시 전사를 실행해 주세요.");
+  db.prepare(
+    "UPDATE meetings SET summary_status = 'failed', summary_error = ? WHERE summary_status = 'generating'",
+  ).run("서버가 재시작되어 노트 생성이 중단되었습니다. 다시 생성해 주세요.");
 }
 
 function openDatabase(): DatabaseSync {
@@ -50,11 +73,11 @@ function openDatabase(): DatabaseSync {
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(schema);
   migrate(db);
-  resetInterruptedTranscriptions(db);
+  resetInterruptedJobs(db);
   return db;
 }
 
-const schemaVersion = 2;
+const schemaVersion = 4;
 const globalKey = `__doranDb_v${schemaVersion}`;
 const globalForDb = globalThis as unknown as Record<string, DatabaseSync | undefined>;
 

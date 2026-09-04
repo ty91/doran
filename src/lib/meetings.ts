@@ -1,5 +1,12 @@
 import { getDb } from "./db";
-import type { Meeting, MeetingListItem, TranscriptionProgress, TranscriptionStatus } from "./types";
+import type {
+  Meeting,
+  MeetingListItem,
+  SummaryStatus,
+  SummaryVersion,
+  TranscriptionProgress,
+  TranscriptionStatus,
+} from "./types";
 
 type MeetingRow = {
   id: string;
@@ -15,6 +22,8 @@ type MeetingRow = {
   transcription_error: string | null;
   transcription_progress: string | null;
   summary: string | null;
+  summary_status: SummaryStatus;
+  summary_error: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -60,6 +69,10 @@ function toMeeting(row: MeetingRow): Meeting {
       progress: parseProgress(row.transcription_progress),
     },
     summary: row.summary,
+    summarization: {
+      status: row.summary_status,
+      error: row.summary_error,
+    },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -186,6 +199,58 @@ export function setTranscript(id: string, transcript: string): void {
       "UPDATE meetings SET transcript = ?, transcription_status = 'done', transcription_error = NULL, updated_at = ? WHERE id = ?",
     )
     .run(transcript, new Date().toISOString(), id);
+}
+
+export function setSummaryStatus(
+  id: string,
+  status: SummaryStatus,
+  error: string | null = null,
+): void {
+  getDb()
+    .prepare(
+      "UPDATE meetings SET summary_status = ?, summary_error = ?, updated_at = ? WHERE id = ?",
+    )
+    .run(status, error, new Date().toISOString(), id);
+}
+
+export function addSummaryVersion(id: string, content: string, model: string): SummaryVersion {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.exec("BEGIN");
+  try {
+    const row = db
+      .prepare(
+        "SELECT COALESCE(MAX(version), 0) + 1 AS next FROM summary_versions WHERE meeting_id = ?",
+      )
+      .get(id) as { next: number };
+    db.prepare(
+      "INSERT INTO summary_versions (meeting_id, version, content, model, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(id, row.next, content, model, now);
+    db.prepare(
+      "UPDATE meetings SET summary = ?, summary_status = 'done', summary_error = NULL, updated_at = ? WHERE id = ?",
+    ).run(content, now, id);
+    db.exec("COMMIT");
+    return { version: row.next, model, createdAt: now };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function listSummaryVersions(id: string): SummaryVersion[] {
+  const rows = getDb()
+    .prepare(
+      "SELECT version, model, created_at FROM summary_versions WHERE meeting_id = ? ORDER BY version DESC",
+    )
+    .all(id) as Array<{ version: number; model: string | null; created_at: string }>;
+  return rows.map((row) => ({ version: row.version, model: row.model, createdAt: row.created_at }));
+}
+
+export function getSummaryVersionContent(id: string, version: number): string | null {
+  const row = getDb()
+    .prepare("SELECT content FROM summary_versions WHERE meeting_id = ? AND version = ?")
+    .get(id, version) as { content: string } | undefined;
+  return row?.content ?? null;
 }
 
 export function deleteMeeting(id: string): Meeting | null {
