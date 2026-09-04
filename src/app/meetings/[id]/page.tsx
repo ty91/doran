@@ -63,7 +63,12 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
           </TabsList>
 
           <TabsContent value="notes" keepMounted>
-            <NotesPanel meeting={meeting} versions={versions} selectedVersion={selectedVersion}>
+            <NotesPanel
+              meeting={meeting}
+              versions={versions}
+              selectedVersion={selectedVersion}
+              content={selectedContent}
+            >
               {selectedContent && <Markdown content={selectedContent} />}
             </NotesPanel>
           </TabsContent>

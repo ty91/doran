@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { History, Loader2, Sparkles } from "lucide-react";
+import { Check, Copy, History, Loader2, Sparkles } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { buildMeetingMarkdown } from "@/lib/meeting-markdown";
 import type { Meeting, SummaryVersion } from "@/lib/types";
 
 const pollIntervalMs = 3000;
@@ -32,16 +33,19 @@ export function NotesPanel({
   meeting,
   versions,
   selectedVersion,
+  content,
   children,
 }: {
   meeting: Meeting;
   versions: SummaryVersion[];
   selectedVersion: number | null;
+  content: string | null;
   children: ReactNode;
 }) {
   const router = useRouter();
   const [requesting, setRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const status = meeting.summarization.status;
   const snapshot = JSON.stringify(meeting.summarization);
   const canGenerate = meeting.transcription.status === "done" && Boolean(meeting.transcript);
@@ -69,6 +73,13 @@ export function NotesPanel({
       clearInterval(timer);
     };
   }, [meeting.id, status, snapshot, router]);
+
+  async function copyMarkdown() {
+    if (content === null) return;
+    await navigator.clipboard.writeText(buildMeetingMarkdown(meeting, content));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   async function generate() {
     setRequesting(true);
@@ -126,17 +137,34 @@ export function NotesPanel({
             </Select>
           )}
         </div>
-        {status !== "generating" && canGenerate && (
-          <button
-            type="button"
-            onClick={generate}
-            disabled={requesting}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
-          >
-            <Sparkles className="size-4" aria-hidden />
-            {versions.length > 0 ? "노트 다시 생성" : "노트 생성"}
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {status !== "generating" && canGenerate && (
+            <button
+              type="button"
+              onClick={generate}
+              disabled={requesting}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              <Sparkles className="size-4" aria-hidden />
+              {versions.length > 0 ? "노트 다시 생성" : "노트 생성"}
+            </button>
+          )}
+          {selected && content !== null && (
+            <button
+              type="button"
+              onClick={copyMarkdown}
+              aria-label="노트 마크다운 복사"
+              title="마크다운으로 복사"
+              className="flex items-center rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              {copied ? (
+                <Check className="size-4 text-emerald-600" aria-hidden />
+              ) : (
+                <Copy className="size-4" aria-hidden />
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {requestError && <p className="text-sm text-red-600 dark:text-red-400">{requestError}</p>}
