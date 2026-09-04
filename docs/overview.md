@@ -46,6 +46,10 @@ pnpm typecheck  # tsc --noEmit
 | `OPENROUTER_SUMMARY_MODEL`       | 아니오 | 요약 노트 모델 ID. 기본값 `openai/gpt-5.6-luna`                                          |
 | `ALLOWED_DEV_ORIGINS`            | 아니오 | dev 서버에 localhost 외 호스트명으로 접속할 때 쉼표로 나열 (예: Tailscale MagicDNS 이름) |
 
+## 배포
+
+홈랩 맥미니에 launchd + Tailscale Serve로 배포합니다. 절차는 [deployment.md](deployment.md)를 참고합니다.
+
 ## 데이터 위치
 
 `data/` 아래에 SQLite DB와 원본 녹음이 저장되며 git에서 제외됩니다. 자세한 구조는 [data-model.md](data-model.md)를 참고합니다.

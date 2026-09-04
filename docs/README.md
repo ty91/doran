@@ -10,6 +10,7 @@
 | [architecture.md](architecture.md) | 요청 흐름, 전사 파이프라인, 모듈 책임, 상태 전이 |
 | [data-model.md](data-model.md)     | SQLite 스키마, 마이그레이션 방식, 파일 저장 구조 |
 | [conventions.md](conventions.md)   | 린트/포맷, 코드 스타일, 반복되는 구현 패턴       |
+| [deployment.md](deployment.md)     | 맥미니 배포 구성, 재배포 절차, 데이터 이전       |
 
 ## 언제 어떤 문서를 갱신하는가
 
@@ -22,5 +23,6 @@
 | 테이블, 컬럼, 저장 파일 구조 변경                            | data-model.md   |
 | 린트 규칙 변경, 새로운 공통 패턴 도입                        | conventions.md  |
 | 앱의 범위나 전제(인증 없음, 로컬 전용 등) 변경               | overview.md     |
+| 배포 대상, 서비스 정의, 노출 방식 변경                       | deployment.md   |
 
 새 주제가 필요하면 파일을 추가하고 위 표에 등록합니다. 되돌리기 어려운 결정을 내렸다면 그 이유를 관련 문서에 한두 문장으로 남깁니다.
