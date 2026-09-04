@@ -160,27 +160,15 @@ export function NotesPanel({
               )}
             </div>
           )}
-          {selected ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-xs text-zinc-500">
-                v{selected.version}
-                {selected.version === latestVersion ? " (최신)" : ""} ·{" "}
-                {formatCreatedAt(selected.createdAt)}
-                {selected.model ? ` · ${selected.model}` : ""}
-              </p>
-              <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-                {children}
-              </div>
-            </div>
-          ) : (
-            status !== "failed" && (
-              <p className="rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700">
-                {canGenerate
-                  ? "아직 노트가 없습니다. 노트 생성을 눌러 전사본을 요약하세요."
-                  : "전사가 완료되면 노트를 생성할 수 있습니다."}
-              </p>
-            )
-          )}
+          {selected
+            ? children
+            : status !== "failed" && (
+                <p className="rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700">
+                  {canGenerate
+                    ? "아직 노트가 없습니다. 노트 생성을 눌러 전사본을 요약하세요."
+                    : "전사가 완료되면 노트를 생성할 수 있습니다."}
+                </p>
+              )}
         </>
       )}
     </section>

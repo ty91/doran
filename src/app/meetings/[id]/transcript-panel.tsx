@@ -79,9 +79,7 @@ export function TranscriptPanel({ meeting }: { meeting: Meeting }) {
       {retryError && <p className="text-sm text-red-600 dark:text-red-400">{retryError}</p>}
 
       {status === "done" && meeting.transcript ? (
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 text-sm leading-7 whitespace-pre-wrap dark:border-zinc-800 dark:bg-zinc-950">
-          {meeting.transcript}
-        </div>
+        <div className="text-sm leading-7 whitespace-pre-wrap">{meeting.transcript}</div>
       ) : status === "failed" ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           <p className="font-medium">전사에 실패했습니다.</p>

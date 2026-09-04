@@ -12,8 +12,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
-  useSidebar,
 } from "@/components/ui/sidebar";
 
 const navItems = [
@@ -33,18 +31,13 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { setOpenMobile } = useSidebar();
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="none" className="sticky top-0 h-svh shrink-0 border-r">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={<Link href="/" />}
-              onClick={() => setOpenMobile(false)}
-            >
+            <SidebarMenuButton size="lg" render={<Link href="/" />}>
               <span className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
                 <AudioLines className="size-4" aria-hidden />
               </span>
@@ -63,7 +56,6 @@ export function AppSidebar() {
                     isActive={item.matches(pathname)}
                     tooltip={item.title}
                     render={<Link href={item.href} />}
-                    onClick={() => setOpenMobile(false)}
                   >
                     <item.icon aria-hidden />
                     <span>{item.title}</span>
@@ -74,7 +66,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarRail />
     </Sidebar>
   );
 }
