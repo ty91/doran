@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,17 +14,16 @@ import { deleteMeetingAction, updateTitleAction } from "./actions";
 
 export function MeetingHeader({ meeting }: { meeting: Meeting }) {
   const [title, setTitle] = useState(meeting.title);
-  const [editingTitle, setEditingTitle] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  function commitTitle() {
-    setEditingTitle(false);
-    const trimmed = title.trim();
+  function commitTitle(value: string) {
+    const trimmed = value.trim();
     if (!trimmed) {
       setTitle(meeting.title);
       return;
     }
+    setTitle(trimmed);
     if (trimmed !== meeting.title) {
       startTransition(() => updateTitleAction(meeting.id, trimmed));
     }
@@ -32,36 +31,22 @@ export function MeetingHeader({ meeting }: { meeting: Meeting }) {
 
   return (
     <header className="flex items-center gap-2">
-      {editingTitle ? (
-        <input
-          ref={(element) => element?.focus()}
-          value={title}
-          aria-label="미팅 제목"
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={commitTitle}
-          onKeyDown={(e) => {
-            if (e.nativeEvent.isComposing) return;
-            if (e.key === "Enter") commitTitle();
-            if (e.key === "Escape") {
-              setTitle(meeting.title);
-              setEditingTitle(false);
-            }
-          }}
-          className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-2xl font-semibold tracking-tight outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setEditingTitle(true)}
-          className="group flex min-w-0 flex-1 items-center gap-2 text-left text-2xl font-semibold tracking-tight"
-        >
-          <span className="truncate">{title}</span>
-          <Pencil
-            className="size-4 shrink-0 text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100"
-            aria-hidden
-          />
-        </button>
-      )}
+      <input
+        value={title}
+        aria-label="미팅 제목"
+        placeholder="제목 없음"
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={(e) => commitTitle(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            e.currentTarget.value = meeting.title;
+            e.currentTarget.blur();
+          }
+        }}
+        className="min-w-0 max-w-full field-sizing-content truncate bg-transparent p-0 text-2xl font-semibold tracking-tight outline-none"
+      />
       {confirmingDelete ? (
         <div className="flex shrink-0 items-center gap-1">
           <Button
