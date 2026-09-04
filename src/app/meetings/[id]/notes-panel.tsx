@@ -4,6 +4,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, History, Loader2, Sparkles } from "lucide-react";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -11,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { buildMeetingMarkdown } from "@/lib/meeting-markdown";
+import { markdownToSlackHtml, markdownToSlackText } from "@/lib/slack-clipboard";
 import type { Meeting, SummaryVersion } from "@/lib/types";
 
 const pollIntervalMs = 3000;
@@ -74,11 +81,27 @@ export function NotesPanel({
     };
   }, [meeting.id, status, snapshot, router]);
 
+  function markCopied() {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   async function copyMarkdown() {
     if (content === null) return;
     await navigator.clipboard.writeText(buildMeetingMarkdown(meeting, content));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    markCopied();
+  }
+
+  async function copyForSlack() {
+    if (content === null) return;
+    const markdown = buildMeetingMarkdown(meeting, content);
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([markdownToSlackHtml(markdown)], { type: "text/html" }),
+        "text/plain": new Blob([markdownToSlackText(markdown)], { type: "text/plain" }),
+      }),
+    ]);
+    markCopied();
   }
 
   async function generate() {
@@ -150,19 +173,27 @@ export function NotesPanel({
             </button>
           )}
           {selected && content !== null && (
-            <button
-              type="button"
-              onClick={copyMarkdown}
-              aria-label="노트 마크다운 복사"
-              title="마크다운으로 복사"
-              className="flex items-center rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-            >
-              {copied ? (
-                <Check className="size-4 text-emerald-600" aria-hidden />
-              ) : (
-                <Copy className="size-4" aria-hidden />
-              )}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    aria-label="노트 복사"
+                    className="flex items-center rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                  />
+                }
+              >
+                {copied ? (
+                  <Check className="size-4 text-emerald-600" aria-hidden />
+                ) : (
+                  <Copy className="size-4" aria-hidden />
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-auto min-w-40">
+                <DropdownMenuItem onClick={copyMarkdown}>마크다운 복사</DropdownMenuItem>
+                <DropdownMenuItem onClick={copyForSlack}>슬랙용 복사</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
