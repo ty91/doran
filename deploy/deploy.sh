@@ -21,4 +21,4 @@ for _ in \$(seq 1 20); do
 done
 launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/$LABEL.plist
 sleep 3
-curl -sf -o /dev/null http://127.0.0.1:3000/ && echo 'doran is up'"
+curl -sf -o /dev/null http://127.0.0.1:13000/ && echo 'doran is up'"
