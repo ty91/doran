@@ -61,7 +61,7 @@ async function requestSummary(userMessage: string): Promise<{ content: string; m
   return { content: stripCodeFence(content), model };
 }
 
-export async function runSummary(meetingId: string): Promise<void> {
+export async function runSummary(meetingId: string, userPrompt?: string): Promise<void> {
   const meeting = getMeeting(meetingId);
   if (!meeting) return;
   if (meeting.summarization.status === "generating") return;
@@ -78,6 +78,7 @@ export async function runSummary(meetingId: string): Promise<void> {
       participants: meeting.participants,
       glossary: getGlossary(),
       transcript: meeting.transcript,
+      userPrompt,
     });
     const result = await requestSummary(userMessage);
     addSummaryVersion(meetingId, result.content, result.model);

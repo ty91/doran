@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, History, Loader2, Sparkles } from "lucide-react";
 import {
@@ -53,6 +53,8 @@ export function NotesPanel({
   const [requesting, setRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [userPrompt, setUserPrompt] = useState("");
+  const userPromptId = useId();
   const status = meeting.summarization.status;
   const snapshot = JSON.stringify(meeting.summarization);
   const canGenerate = meeting.transcription.status === "done" && Boolean(meeting.transcript);
@@ -108,7 +110,11 @@ export function NotesPanel({
     setRequesting(true);
     setRequestError(null);
     try {
-      const res = await fetch(`/api/meetings/${meeting.id}/summarize`, { method: "POST" });
+      const res = await fetch(`/api/meetings/${meeting.id}/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userPrompt }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `요청 실패 (${res.status})`);
@@ -198,7 +204,32 @@ export function NotesPanel({
         </div>
       </div>
 
-      {requestError && <p className="text-sm text-red-600 dark:text-red-400">{requestError}</p>}
+      {canGenerate && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor={userPromptId} className="text-sm font-medium">
+            요약 요청사항 <span className="font-normal text-muted-foreground">(선택)</span>
+          </label>
+          <textarea
+            id={userPromptId}
+            value={userPrompt}
+            onChange={(event) => setUserPrompt(event.target.value)}
+            disabled={requesting || status === "generating"}
+            rows={3}
+            placeholder="예: 기술적 쟁점과 각 선택지의 근거를 자세히 정리해 주세요. 일정과 담당자를 강조해 주세요."
+            aria-describedby={`${userPromptId}-hint`}
+            className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"
+          />
+          <p id={`${userPromptId}-hint`} className="text-xs text-muted-foreground">
+            비워 두면 기본 지침으로 요약합니다. 입력한 요청사항은 노트 생성·재생성에 반영됩니다.
+          </p>
+        </div>
+      )}
+
+      {requestError && (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {requestError}
+        </p>
+      )}
 
       {status === "generating" ? (
         <div className="flex items-center gap-3 rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-sm text-zinc-500 dark:border-zinc-700">
