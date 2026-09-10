@@ -1,16 +1,15 @@
 import { addSummaryVersion, getMeeting, setSummaryStatus } from "./meetings";
-import { getGlossary } from "./settings";
+import { getGlossary, getSummarySettings } from "./settings";
 import { buildSummaryUserMessage, summarySystemPrompt } from "./summary-prompt";
 
 const endpoint = "https://api.openai.com/v1/chat/completions";
-const defaultModel = "gpt-5.6-sol";
 
 function config() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.");
   }
-  return { apiKey, model: process.env.OPENAI_SUMMARY_MODEL || defaultModel };
+  return { apiKey, ...getSummarySettings() };
 }
 
 function stripCodeFence(text: string): string {
@@ -24,7 +23,7 @@ type ChatCompletionResponse = {
 };
 
 async function requestSummary(userMessage: string): Promise<{ content: string; model: string }> {
-  const { apiKey, model } = config();
+  const { apiKey, model, reasoningEffort } = config();
   let response: Response;
   try {
     response = await fetch(endpoint, {
@@ -35,7 +34,7 @@ async function requestSummary(userMessage: string): Promise<{ content: string; m
       },
       body: JSON.stringify({
         model,
-        reasoning_effort: "high",
+        reasoning_effort: reasoningEffort,
         messages: [
           { role: "system", content: summarySystemPrompt },
           { role: "user", content: userMessage },

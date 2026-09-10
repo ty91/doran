@@ -42,7 +42,7 @@ Node 24에 내장되어 네이티브 빌드가 필요 없고, pnpm의 빌드 스
 
 ### settings
 
-키-값 테이블입니다. 현재 키는 `glossary` 하나이며 값은 JSON 문자열 배열입니다.
+키-값 테이블입니다. `glossary`는 JSON 문자열 배열, `summary_generation`은 JSON `{ "model": "gpt-5.6-sol", "reasoningEffort": "high" }`입니다. 모델과 추론 수준을 한 값으로 저장해 두 선택이 함께 반영되게 합니다. 저장된 노트 생성 설정이 환경 변수보다 우선하며, 값이 없거나 유효하지 않으면 기본 설정을 사용합니다.
 
 ### summary_versions
 

@@ -38,15 +38,15 @@ pnpm typecheck  # tsc --noEmit
 
 `.env`에 둡니다. 템플릿은 `.env.example`입니다.
 
-| 변수                         | 필수   | 설명                                                                                     |
-| ---------------------------- | ------ | ---------------------------------------------------------------------------------------- |
-| `OPENAI_API_KEY`             | 예     | OpenAI API 키                                                                            |
-| `OPENAI_TRANSCRIBE_MODEL`    | 아니오 | 전사 모델 ID. 기본값 `gpt-transcribe`                                                    |
-| `OPENAI_TRANSCRIBE_LANGUAGE` | 아니오 | ISO 639-1 언어 코드. 비우면 자동 감지                                                    |
-| `OPENAI_SUMMARY_MODEL`       | 아니오 | 요약 노트 모델 ID. 기본값 `gpt-5.6-sol`                                                  |
-| `ALLOWED_DEV_ORIGINS`        | 아니오 | dev 서버에 localhost 외 호스트명으로 접속할 때 쉼표로 나열 (예: Tailscale MagicDNS 이름) |
+| 변수                         | 필수   | 설명                                                                                                    |
+| ---------------------------- | ------ | ------------------------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`             | 예     | OpenAI API 키                                                                                           |
+| `OPENAI_TRANSCRIBE_MODEL`    | 아니오 | 전사 모델 ID. 기본값 `gpt-transcribe`                                                                   |
+| `OPENAI_TRANSCRIBE_LANGUAGE` | 아니오 | ISO 639-1 언어 코드. 비우면 자동 감지                                                                   |
+| `OPENAI_SUMMARY_MODEL`       | 아니오 | 설정 저장 전의 노트 모델. 지원값 `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna`, 기본값 `gpt-5.6-sol` |
+| `ALLOWED_DEV_ORIGINS`        | 아니오 | dev 서버에 localhost 외 호스트명으로 접속할 때 쉼표로 나열 (예: Tailscale MagicDNS 이름)                |
 
-기존 `OPENROUTER_*` 변수는 더 이상 읽지 않습니다. 모델을 별도로 지정하려면 `OPENAI_*` 변수에 `openai/` 접두어 없는 OpenAI 모델 ID를 넣습니다. `.env`를 변경한 뒤에는 서버를 재시작합니다.
+기존 `OPENROUTER_*` 변수는 더 이상 읽지 않습니다. 모델을 별도로 지정하려면 `OPENAI_*` 변수에 `openai/` 접두어 없는 OpenAI 모델 ID를 넣습니다. `.env`를 변경한 뒤에는 서버를 재시작합니다. 노트 모델과 추론 수준은 설정 화면에서 변경할 수 있으며, 저장한 설정은 환경 변수보다 우선하고 서버 재시작 없이 다음 노트 생성부터 적용됩니다.
 
 ## 배포
 

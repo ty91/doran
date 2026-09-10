@@ -21,7 +21,8 @@ process.chdir(workspace);
 const { getDb } = await import("../src/lib/db.ts");
 const { addSummaryVersion, createMeeting, getMeeting, listSummaryVersions, setTranscript } =
   await import("../src/lib/meetings.ts");
-const { setGlossary } = await import("../src/lib/settings.ts");
+const { getSummarySettings, setGlossary, setSummarySettings } =
+  await import("../src/lib/settings.ts");
 const { runTranscription } = await import("../src/lib/transcription.ts");
 const { runSummary } = await import("../src/lib/summary.ts");
 const envNames = [
@@ -156,6 +157,45 @@ test("빈 사전과 모델 재설정을 지원하고 API 오류에도 기존 노
   assert.equal(getMeeting("empty").summary, "기존 노트");
   assert.equal(listSummaryVersions("empty").length, 1);
   delete process.env.OPENAI_SUMMARY_MODEL;
+});
+
+test("저장한 모델과 추론 수준으로 재생성하고 잘못된 설정은 기존 값을 보존한다", async (t) => {
+  seed("settings");
+  setTranscript("settings", "전사본");
+  process.env.OPENAI_SUMMARY_MODEL = "gpt-5.6-sol";
+  t.after(() => {
+    delete process.env.OPENAI_SUMMARY_MODEL;
+  });
+  const selections = [
+    { model: "gpt-5.6-terra", reasoningEffort: "xhigh" },
+    { model: "gpt-5.6-luna", reasoningEffort: "low" },
+    { model: "gpt-5.6-sol", reasoningEffort: "medium" },
+  ];
+  for (const [index, settings] of selections.entries()) {
+    setSummarySettings(settings);
+    assert.deepEqual(getSummarySettings(), settings);
+    for (const invalid of [
+      null,
+      { ...settings, model: "unknown" },
+      { ...settings, reasoningEffort: "extra high" },
+    ]) {
+      assert.throws(() => setSummarySettings(invalid), /모델과 추론 수준/);
+      assert.deepEqual(getSummarySettings(), settings);
+    }
+    t.mock.method(globalThis, "fetch", async (url, options) => {
+      assert.equal(url, "https://api.openai.com/v1/chat/completions");
+      const body = JSON.parse(options.body);
+      assert.equal(body.model, settings.model);
+      assert.equal(body.reasoning_effort, settings.reasoningEffort);
+      return Response.json({ choices: [{ message: { content: `노트 ${index + 1}` } }] });
+    });
+    await runSummary("settings");
+    assert.equal(getMeeting("settings").summarization.status, "done");
+    assert.equal(getMeeting("settings").summary, `노트 ${index + 1}`);
+    const versions = listSummaryVersions("settings");
+    assert.equal(versions.length, index + 1);
+    assert.equal(versions[0].model, settings.model);
+  }
 });
 
 test("OpenAI 키가 없으면 전사와 노트 생성 실패를 기록한다", async () => {
