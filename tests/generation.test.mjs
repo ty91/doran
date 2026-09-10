@@ -97,7 +97,8 @@ test("전사 조각과 재시도에 같은 용어를 보내고 노트와 모델 
     }
     assert.equal(url, "https://api.openai.com/v1/chat/completions");
     const body = JSON.parse(options.body);
-    assert.equal(body.model, "gpt-5.6-luna");
+    assert.equal(body.model, "gpt-5.6-sol");
+    assert.equal(body.reasoning_effort, "high");
     assert.equal("temperature" in body, false);
     assert.equal(body.messages[0].role, "system");
     assert.match(body.messages[1].content, /Doran 첫 조각\n\n태영 둘째 조각/);
@@ -116,7 +117,7 @@ test("전사 조각과 재시도에 같은 용어를 보내고 노트와 모델 
   await runSummary("success", "결정 사항 중심");
   assert.equal(getMeeting("success").summarization.status, "done");
   assert.equal(getMeeting("success").summary, "#### 개요\n* 결정 사항");
-  assert.equal(listSummaryVersions("success")[0].model, "gpt-5.6-luna");
+  assert.equal(listSummaryVersions("success")[0].model, "gpt-5.6-sol");
 });
 
 test("빈 사전과 모델 재설정을 지원하고 API 오류에도 기존 노트를 보존한다", async (t) => {

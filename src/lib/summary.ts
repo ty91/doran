@@ -3,7 +3,7 @@ import { getGlossary } from "./settings";
 import { buildSummaryUserMessage, summarySystemPrompt } from "./summary-prompt";
 
 const endpoint = "https://api.openai.com/v1/chat/completions";
-const defaultModel = "gpt-5.6-luna";
+const defaultModel = "gpt-5.6-sol";
 
 function config() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -35,6 +35,7 @@ async function requestSummary(userMessage: string): Promise<{ content: string; m
       },
       body: JSON.stringify({
         model,
+        reasoning_effort: "high",
         messages: [
           { role: "system", content: summarySystemPrompt },
           { role: "user", content: userMessage },

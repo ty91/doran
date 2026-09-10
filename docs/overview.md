@@ -14,7 +14,7 @@ Doran은 미팅 녹음 파일을 올리면 전사본과 요약 노트를 만들�
 - UI 컴포넌트: shadcn (Base UI 기반, `nova` 프리셋). 생성된 파일은 `src/components/ui`에 둡니다
 - 저장소: Node 24 내장 `node:sqlite` + 로컬 파일 시스템
 - 전사: OpenAI `/v1/audio/transcriptions` (기본 모델 `gpt-transcribe`)
-- 요약 노트: OpenAI `/v1/chat/completions` (기본 모델 `gpt-5.6-luna`)
+- 요약 노트: OpenAI `/v1/chat/completions` (기본 모델 `gpt-5.6-sol`, reasoning effort `high`)
 - 마크다운 렌더링: react-markdown (`src/components/markdown.tsx`)
 - 아이콘: lucide-react
 - 린터/포매터: oxlint, oxfmt
@@ -43,7 +43,7 @@ pnpm typecheck  # tsc --noEmit
 | `OPENAI_API_KEY`             | 예     | OpenAI API 키                                                                            |
 | `OPENAI_TRANSCRIBE_MODEL`    | 아니오 | 전사 모델 ID. 기본값 `gpt-transcribe`                                                    |
 | `OPENAI_TRANSCRIBE_LANGUAGE` | 아니오 | ISO 639-1 언어 코드. 비우면 자동 감지                                                    |
-| `OPENAI_SUMMARY_MODEL`       | 아니오 | 요약 노트 모델 ID. 기본값 `gpt-5.6-luna`                                                 |
+| `OPENAI_SUMMARY_MODEL`       | 아니오 | 요약 노트 모델 ID. 기본값 `gpt-5.6-sol`                                                  |
 | `ALLOWED_DEV_ORIGINS`        | 아니오 | dev 서버에 localhost 외 호스트명으로 접속할 때 쉼표로 나열 (예: Tailscale MagicDNS 이름) |
 
 기존 `OPENROUTER_*` 변수는 더 이상 읽지 않습니다. 모델을 별도로 지정하려면 `OPENAI_*` 변수에 `openai/` 접두어 없는 OpenAI 모델 ID를 넣습니다. `.env`를 변경한 뒤에는 서버를 재시작합니다.
