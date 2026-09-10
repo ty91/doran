@@ -23,8 +23,8 @@ export default function SettingsPage() {
             용어 사전
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
-            요약 노트를 만들 때 LLM에 함께 전달할 용어입니다. 사내 용어, 제품명, 사람 이름 등을
-            등록해 두면 요약 품질이 좋아집니다.
+            전사와 요약 노트를 만들 때 함께 전달할 용어입니다. 사내 용어, 제품명, 사람 이름 등을
+            등록해 두면 음성 인식과 요약 품질을 높이는 데 도움이 됩니다.
           </p>
         </div>
         <GlossaryEditor initialTerms={glossary} />

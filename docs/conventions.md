@@ -30,3 +30,7 @@
 - **동적 페이지**: DB를 읽는 페이지는 `export const dynamic = "force-dynamic"`을 선언합니다.
 - **라우트 타입**: 페이지와 라우트 핸들러는 Next가 생성하는 `PageProps<"/path">`, `RouteContext<"/path">`를 씁니다. `params`는 Promise이므로 `await`합니다.
 - **에러 재던지기**: 원인을 감싸서 던질 때는 `new Error(message, { cause })`를 씁니다.
+
+## 생성 파이프라인 검증
+
+`node --test tests/generation.test.mjs`로 전사와 노트 생성을 검증합니다(Node 24, ffmpeg 필요). HTTP 응답은 작업 예약만 나타내므로, 외부 API 요청 형식과 비동기 실패의 원인을 직접 진단하기 위해 백그라운드 작업 진입점에서 테스트합니다. 임시 디렉터리의 실제 SQLite·ffmpeg를 사용하고 OpenAI 네트워크 경계만 대체합니다. 개인 녹음과 `.env`는 사용하지 않습니다.

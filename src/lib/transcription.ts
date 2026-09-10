@@ -8,26 +8,31 @@ import {
   setTranscriptionProgress,
   setTranscriptionStatus,
 } from "./meetings";
+import { getGlossary } from "./settings";
 
-const endpoint = "https://openrouter.ai/api/v1/audio/transcriptions";
-const defaultModel = "openai/gpt-transcribe";
+const endpoint = "https://api.openai.com/v1/audio/transcriptions";
+const defaultModel = "gpt-transcribe";
 const singleRequestLimitBytes = 25 * 1024 * 1024;
 const concurrency = 3;
 const maxAttempts = 3;
 
 function config() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY 환경 변수가 설정되지 않았습니다.");
+    throw new Error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.");
   }
   return {
     apiKey,
-    model: process.env.OPENROUTER_TRANSCRIBE_MODEL || defaultModel,
-    language: process.env.OPENROUTER_TRANSCRIBE_LANGUAGE || undefined,
+    model: process.env.OPENAI_TRANSCRIBE_MODEL || defaultModel,
+    language: process.env.OPENAI_TRANSCRIBE_LANGUAGE || undefined,
   };
 }
 
-async function transcribeFile(filePath: string, mimeType: string): Promise<string> {
+async function transcribeFile(
+  filePath: string,
+  mimeType: string,
+  glossary: string[],
+): Promise<string> {
   const { apiKey, model, language } = config();
   const form = new FormData();
   form.append(
@@ -36,7 +41,13 @@ async function transcribeFile(filePath: string, mimeType: string): Promise<strin
     path.basename(filePath),
   );
   form.append("model", model);
-  if (language) form.append("language", language);
+  if (model === defaultModel) {
+    if (language) form.append("languages[]", language);
+    for (const term of glossary) form.append("keywords[]", term);
+  } else {
+    if (language) form.append("language", language);
+    if (glossary.length > 0) form.append("prompt", glossary.join(", "));
+  }
 
   let response: Response;
   try {
@@ -47,24 +58,28 @@ async function transcribeFile(filePath: string, mimeType: string): Promise<strin
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`OpenRouter 요청 중 연결 오류: ${message}`, { cause: error });
+    throw new Error(`OpenAI 요청 중 연결 오류: ${message}`, { cause: error });
   }
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`OpenRouter 응답 오류 (${response.status}): ${body.slice(0, 500)}`);
+    throw new Error(`OpenAI 응답 오류 (${response.status}): ${body.slice(0, 500)}`);
   }
   const json = (await response.json()) as { text?: unknown };
   if (typeof json.text !== "string") {
-    throw new Error("OpenRouter 응답에 전사 텍스트가 없습니다.");
+    throw new Error("OpenAI 응답에 전사 텍스트가 없습니다.");
   }
   return json.text.trim();
 }
 
-async function transcribeWithRetry(filePath: string, mimeType: string): Promise<string> {
+async function transcribeWithRetry(
+  filePath: string,
+  mimeType: string,
+  glossary: string[],
+): Promise<string> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await transcribeFile(filePath, mimeType);
+      return await transcribeFile(filePath, mimeType, glossary);
     } catch (error) {
       lastError = error;
       if (attempt < maxAttempts) {
@@ -102,6 +117,13 @@ export async function runTranscription(meetingId: string): Promise<void> {
   let chunkDir: string | null = null;
   try {
     config();
+    const glossary = Array.from(
+      new Set(
+        getGlossary()
+          .map((term) => term.replace(/[<>\r\n]/g, " ").trim())
+          .filter(Boolean),
+      ),
+    );
     const sourcePath = audioPathFor(meeting.audio.storedName);
     let files: string[];
     let mimeType: string;
@@ -121,7 +143,7 @@ export async function runTranscription(meetingId: string): Promise<void> {
     let done = 0;
     setTranscriptionProgress(meetingId, { done, total: files.length });
     const texts = await mapWithConcurrency(files, concurrency, async (file) => {
-      const text = await transcribeWithRetry(file, mimeType);
+      const text = await transcribeWithRetry(file, mimeType, glossary);
       done += 1;
       setTranscriptionProgress(meetingId, { done, total: files.length });
       return text;

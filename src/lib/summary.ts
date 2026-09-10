@@ -2,15 +2,15 @@ import { addSummaryVersion, getMeeting, setSummaryStatus } from "./meetings";
 import { getGlossary } from "./settings";
 import { buildSummaryUserMessage, summarySystemPrompt } from "./summary-prompt";
 
-const endpoint = "https://openrouter.ai/api/v1/chat/completions";
-const defaultModel = "openai/gpt-5.6-luna";
+const endpoint = "https://api.openai.com/v1/chat/completions";
+const defaultModel = "gpt-5.6-luna";
 
 function config() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY 환경 변수가 설정되지 않았습니다.");
+    throw new Error("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.");
   }
-  return { apiKey, model: process.env.OPENROUTER_SUMMARY_MODEL || defaultModel };
+  return { apiKey, model: process.env.OPENAI_SUMMARY_MODEL || defaultModel };
 }
 
 function stripCodeFence(text: string): string {
@@ -35,7 +35,6 @@ async function requestSummary(userMessage: string): Promise<{ content: string; m
       },
       body: JSON.stringify({
         model,
-        temperature: 0.2,
         messages: [
           { role: "system", content: summarySystemPrompt },
           { role: "user", content: userMessage },
@@ -44,19 +43,19 @@ async function requestSummary(userMessage: string): Promise<{ content: string; m
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`OpenRouter 요청 중 연결 오류: ${message}`, { cause: error });
+    throw new Error(`OpenAI 요청 중 연결 오류: ${message}`, { cause: error });
   }
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`OpenRouter 응답 오류 (${response.status}): ${body.slice(0, 500)}`);
+    throw new Error(`OpenAI 응답 오류 (${response.status}): ${body.slice(0, 500)}`);
   }
   const json = (await response.json()) as ChatCompletionResponse;
   if (json.error?.message) {
-    throw new Error(`OpenRouter 응답 오류: ${json.error.message}`);
+    throw new Error(`OpenAI 응답 오류: ${json.error.message}`);
   }
   const content = json.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) {
-    throw new Error("OpenRouter 응답에 요약 노트가 없습니다.");
+    throw new Error("OpenAI 응답에 요약 노트가 없습니다.");
   }
   return { content: stripCodeFence(content), model };
 }
