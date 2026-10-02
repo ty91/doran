@@ -10,6 +10,18 @@ const headingTags = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
 
 function rehypeHeadingsToBold() {
   return (tree: HastRoot) => {
+    tree.children = tree.children.flatMap((node, index) => {
+      if (index === 0 || node.type !== "element" || !headingTags.has(node.tagName)) {
+        return [node];
+      }
+      const spacer: Element = {
+        type: "element",
+        tagName: "p",
+        properties: {},
+        children: [{ type: "element", tagName: "br", properties: {}, children: [] }],
+      };
+      return [spacer, { type: "text", value: "\n" }, node];
+    });
     visit(tree, "element", (node: Element) => {
       if (!headingTags.has(node.tagName)) return;
       const strong: Element = {
@@ -34,7 +46,7 @@ const htmlProcessor = unified()
 const mdastProcessor = unified().use(remarkParse);
 
 export function markdownToSlackHtml(markdown: string): string {
-  return String(htmlProcessor.processSync(markdown));
+  return String(htmlProcessor.processSync(markdown.normalize("NFC")));
 }
 
 function phrasing(nodes: PhrasingContent[]): string {
@@ -112,9 +124,15 @@ function block(node: RootContent | BlockContent | DefinitionContent, depth: numb
 }
 
 export function markdownToSlackText(markdown: string): string {
-  const tree = mdastProcessor.parse(markdown) as Root;
-  return tree.children
-    .map((child) => block(child, 0))
-    .filter(Boolean)
-    .join("\n\n");
+  const tree = mdastProcessor.parse(markdown.normalize("NFC")) as Root;
+  let text = "";
+  let previous: RootContent | undefined;
+  for (const child of tree.children) {
+    const content = block(child, 0);
+    if (!content) continue;
+    if (text) text += previous?.type === "heading" ? "\n" : "\n\n";
+    text += content;
+    previous = child;
+  }
+  return text;
 }
