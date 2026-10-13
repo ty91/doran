@@ -9,6 +9,7 @@ import {
   setTranscriptionStatus,
 } from "./meetings";
 import { getGlossary } from "./settings";
+import { runSummary } from "./summary";
 
 const endpoint = "https://api.openai.com/v1/audio/transcriptions";
 const defaultModel = "gpt-transcribe";
@@ -115,6 +116,7 @@ export async function runTranscription(meetingId: string): Promise<void> {
 
   setTranscriptionStatus(meetingId, "transcribing");
   let chunkDir: string | null = null;
+  let transcript: string;
   try {
     config();
     const glossary = Array.from(
@@ -148,11 +150,14 @@ export async function runTranscription(meetingId: string): Promise<void> {
       setTranscriptionProgress(meetingId, { done, total: files.length });
       return text;
     });
-    setTranscript(meetingId, texts.filter(Boolean).join("\n\n"));
+    transcript = texts.filter(Boolean).join("\n\n");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setTranscriptionStatus(meetingId, "failed", message);
+    return;
   } finally {
     if (chunkDir) await removeChunks(chunkDir).catch(() => undefined);
   }
+  setTranscript(meetingId, transcript);
+  await runSummary(meetingId);
 }

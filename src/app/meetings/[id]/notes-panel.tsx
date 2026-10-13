@@ -256,7 +256,7 @@ export function NotesPanel({
                 <p className="rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700">
                   {canGenerate
                     ? "아직 노트가 없습니다. 노트 생성을 눌러 전사본을 요약하세요."
-                    : "전사가 완료되면 노트를 생성할 수 있습니다."}
+                    : "전사가 완료되면 노트가 자동으로 생성됩니다."}
                 </p>
               )}
         </>

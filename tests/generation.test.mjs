@@ -72,10 +72,11 @@ after(async () => {
   await rm(workspace, { recursive: true, force: true });
 });
 
-test("전사 조각과 재시도에 같은 용어를 보내고 노트와 모델 버전을 저장한다", async (t) => {
+test("전사 완료 시 기본 노트를 자동 생성하고 요청사항으로 수동 재생성한다", async (t) => {
   seed("success");
   setGlossary(["Doran", "<태영>\n", "\r\n", "Doran"]);
   let retry = true;
+  let summaryRequests = 0;
   t.mock.method(globalThis, "fetch", async (url, options) => {
     assert.equal(options.method, "POST");
     assert.equal(options.headers.Authorization, "Bearer test-openai-key");
@@ -97,6 +98,11 @@ test("전사 조각과 재시도에 같은 용어를 보내고 노트와 모델 
       });
     }
     assert.equal(url, "https://api.openai.com/v1/chat/completions");
+    summaryRequests += 1;
+    const meeting = getMeeting("success");
+    assert.equal(meeting.transcription.status, "done");
+    assert.equal(meeting.summarization.status, "generating");
+    await assert.rejects(stat(path.join(workspace, "data/tmp/success")), { code: "ENOENT" });
     const body = JSON.parse(options.body);
     assert.equal(body.model, "gpt-5.6-sol");
     assert.equal(body.reasoning_effort, "high");
@@ -104,7 +110,11 @@ test("전사 조각과 재시도에 같은 용어를 보내고 노트와 모델 
     assert.equal(body.messages[0].role, "system");
     assert.match(body.messages[1].content, /Doran 첫 조각\n\n태영 둘째 조각/);
     assert.match(body.messages[1].content, /새 용어/);
-    assert.match(body.messages[1].content, /결정 사항 중심/);
+    if (summaryRequests === 1) {
+      assert.doesNotMatch(body.messages[1].content, /결정 사항 중심/);
+    } else {
+      assert.match(body.messages[1].content, /결정 사항 중심/);
+    }
     return Response.json({
       choices: [{ message: { content: "```markdown\n#### 개요\n* 결정 사항\n```" } }],
     });
@@ -114,17 +124,26 @@ test("전사 조각과 재시도에 같은 용어를 보내고 노트와 모델 
   assert.equal(meeting.transcription.status, "done", meeting.transcription.error);
   assert.equal(meeting.transcript, "Doran 첫 조각\n\n태영 둘째 조각");
   assert.deepEqual(meeting.transcription.progress, { done: 2, total: 2 });
+  assert.equal(meeting.summarization.status, "done", meeting.summarization.error);
+  assert.equal(meeting.summary, "#### 개요\n* 결정 사항");
+  assert.equal(summaryRequests, 1);
+  assert.equal(listSummaryVersions("success").length, 1);
   await assert.rejects(stat(path.join(workspace, "data/tmp/success")), { code: "ENOENT" });
   await runSummary("success", "결정 사항 중심");
   assert.equal(getMeeting("success").summarization.status, "done");
   assert.equal(getMeeting("success").summary, "#### 개요\n* 결정 사항");
   assert.equal(listSummaryVersions("success")[0].model, "gpt-5.6-sol");
+  assert.equal(summaryRequests, 2);
+  assert.equal(listSummaryVersions("success").length, 2);
 });
 
 test("빈 사전과 모델 재설정을 지원하고 API 오류에도 기존 노트를 보존한다", async (t) => {
   seed("empty");
   setGlossary([]);
   t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (url === "https://api.openai.com/v1/chat/completions") {
+      return Response.json({ choices: [{ message: { content: "첫 자동 노트" } }] });
+    }
     assert.equal(url, "https://api.openai.com/v1/audio/transcriptions");
     assert.deepEqual(options.body.getAll("keywords[]"), []);
     assert.equal(options.body.has("prompt"), false);
@@ -132,9 +151,14 @@ test("빈 사전과 모델 재설정을 지원하고 API 오류에도 기존 노
   });
   await runTranscription("empty");
   assert.equal(getMeeting("empty").transcription.status, "done");
+  assert.equal(getMeeting("empty").summary, "첫 자동 노트");
   process.env.OPENAI_TRANSCRIBE_MODEL = "gpt-4o-transcribe";
   setGlossary(["Doran"]);
-  t.mock.method(globalThis, "fetch", async (_url, options) => {
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (url === "https://api.openai.com/v1/chat/completions") {
+      assert.match(JSON.parse(options.body).messages[1].content, /수정 전사본\n\n수정 전사본/);
+      return Response.json({ choices: [{ message: { content: "재전사 자동 노트" } }] });
+    }
     assert.equal(options.body.get("model"), "gpt-4o-transcribe");
     assert.equal(options.body.get("prompt"), "Doran");
     assert.equal(options.body.get("language"), "ko");
@@ -143,6 +167,11 @@ test("빈 사전과 모델 재설정을 지원하고 API 오류에도 기존 노
   });
   await runTranscription("empty");
   assert.equal(getMeeting("empty").transcript, "수정 전사본\n\n수정 전사본");
+  assert.equal(getMeeting("empty").summary, "재전사 자동 노트");
+  assert.deepEqual(
+    listSummaryVersions("empty").map(({ version }) => version),
+    [2, 1],
+  );
   delete process.env.OPENAI_TRANSCRIBE_MODEL;
   addSummaryVersion("empty", "기존 노트", "gpt-5.6-luna");
   process.env.OPENAI_SUMMARY_MODEL = "gpt-5.6-terra";
@@ -155,8 +184,58 @@ test("빈 사전과 모델 재설정을 지원하고 API 오류에도 기존 노
   assert.equal(getMeeting("empty").summarization.status, "failed");
   assert.match(getMeeting("empty").summarization.error, /OpenAI 응답 오류 \(429\)/);
   assert.equal(getMeeting("empty").summary, "기존 노트");
-  assert.equal(listSummaryVersions("empty").length, 1);
+  assert.equal(listSummaryVersions("empty").length, 3);
   delete process.env.OPENAI_SUMMARY_MODEL;
+});
+
+test("자동 노트 생성 실패에도 전사와 기존 버전을 보존하고 노트만 재시도한다", async (t) => {
+  seed("summary-failure");
+  addSummaryVersion("summary-failure", "기존 노트", "gpt-5.6-sol");
+  let summaryRequests = 0;
+  t.mock.method(globalThis, "fetch", async (url) => {
+    if (url === "https://api.openai.com/v1/audio/transcriptions") {
+      return Response.json({ text: "새 전사본" });
+    }
+    assert.equal(url, "https://api.openai.com/v1/chat/completions");
+    summaryRequests += 1;
+    return new Response("rate limited", { status: 429 });
+  });
+  await runTranscription("summary-failure");
+  const meeting = getMeeting("summary-failure");
+  assert.equal(meeting.transcription.status, "done", meeting.transcription.error);
+  assert.equal(meeting.transcript, "새 전사본\n\n새 전사본");
+  assert.equal(meeting.summarization.status, "failed");
+  assert.match(meeting.summarization.error, /OpenAI 응답 오류 \(429\)/);
+  assert.equal(meeting.summary, "기존 노트");
+  assert.equal(listSummaryVersions("summary-failure").length, 1);
+  assert.equal(summaryRequests, 1);
+  t.mock.method(globalThis, "fetch", async (url) => {
+    assert.equal(url, "https://api.openai.com/v1/chat/completions");
+    return Response.json({ choices: [{ message: { content: "재시도 노트" } }] });
+  });
+  await runSummary("summary-failure");
+  assert.equal(getMeeting("summary-failure").summarization.status, "done");
+  assert.equal(getMeeting("summary-failure").summary, "재시도 노트");
+  assert.equal(listSummaryVersions("summary-failure").length, 2);
+});
+
+test("빈 전사본이면 OpenAI에 노트를 요청하지 않는다", async (t) => {
+  seed("empty-transcript");
+  let summaryRequests = 0;
+  t.mock.method(globalThis, "fetch", async (url) => {
+    if (url === "https://api.openai.com/v1/audio/transcriptions") {
+      return Response.json({ text: " " });
+    }
+    summaryRequests += 1;
+    throw new Error("빈 전사본으로 노트를 요청했습니다.");
+  });
+  await runTranscription("empty-transcript");
+  const meeting = getMeeting("empty-transcript");
+  assert.equal(meeting.transcription.status, "done");
+  assert.equal(meeting.transcript, "");
+  assert.equal(meeting.summarization.status, "failed");
+  assert.equal(summaryRequests, 0);
+  assert.equal(listSummaryVersions("empty-transcript").length, 0);
 });
 
 test("저장한 모델과 추론 수준으로 재생성하고 잘못된 설정은 기존 값을 보존한다", async (t) => {
@@ -204,6 +283,8 @@ test("OpenAI 키가 없으면 전사와 노트 생성 실패를 기록한다", a
   await runTranscription("missing-key");
   assert.equal(getMeeting("missing-key").transcription.status, "failed");
   assert.match(getMeeting("missing-key").transcription.error, /OPENAI_API_KEY/);
+  assert.equal(getMeeting("missing-key").summarization.status, "idle");
+  assert.equal(listSummaryVersions("missing-key").length, 0);
   setTranscript("missing-key", "전사본");
   await runSummary("missing-key");
   assert.equal(getMeeting("missing-key").summarization.status, "failed");

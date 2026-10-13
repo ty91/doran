@@ -31,14 +31,14 @@
 1. 업로드 라우트가 파일을 `data/audio/<id>.<ext>`에 저장하고 미팅 행을 `pending`으로 만듭니다. 제목은 파일명에서, 날짜는 클라이언트가 보낸 파일의 수정 시각에서 가져옵니다.
 2. 같은 요청에서 `after()`로 `runTranscription(id)`를 예약합니다. 응답은 즉시 돌아가고 전사는 서버 프로세스 안에서 계속 실행됩니다.
 3. `runTranscription`은 상태를 `transcribing`으로 바꾸고, ffmpeg로 녹음을 10분 단위 모노 48kbps mp3 조각으로 나눕니다(`data/tmp/<id>/`). 전사 시작 시 읽은 용어 사전을 모든 조각과 재시도에 동일하게 전달합니다. `gpt-transcribe`에는 용어를 `keywords[]`, 언어 힌트를 `languages[]`로 보내고, 다른 모델에는 용어를 `prompt`, 언어를 `language`로 보냅니다. API가 거부하는 용어 내 `<`, `>`, 개행은 전송할 때만 공백으로 바꿉니다. 조각을 3개씩 병렬로 OpenAI에 multipart로 보내고, 순서를 유지해 합칩니다. 조각마다 최대 3회 재시도합니다.
-4. 진행률(`done/total`)을 DB에 기록하고, 완료되면 `done`과 전사본을, 실패하면 `failed`와 오류 메시지를 저장합니다. 임시 조각은 항상 삭제합니다.
+4. 진행률(`done/total`)을 DB에 기록하고 임시 조각을 정리한 뒤, 완료되면 `done`과 전사본을 저장하고 같은 백그라운드 작업에서 `runSummary(id)`를 이어서 실행합니다. 전사 실패 시 `failed`와 오류 메시지를 저장하고 노트는 생성하지 않습니다. 임시 조각은 항상 삭제합니다. 노트 생성 실패는 전사 완료 상태와 전사본에 영향을 주지 않습니다.
 5. 상세 페이지의 클라이언트 컴포넌트가 3초마다 `GET /api/meetings/[id]`를 폴링하다가 전사 상태가 바뀌면 `router.refresh()`로 서버 컴포넌트를 다시 그립니다.
 
 수 시간짜리 녹음이 흔하므로 10분 분할을 유지합니다. 작은 조각은 업로드 제한과 실패 시 재전송 비용을 줄입니다. ffmpeg가 없을 때만 25MB 이하 파일을 그대로 보냅니다. 전사 힌트의 필드와 제약은 [OpenAI 전사 가이드](https://developers.openai.com/api/docs/guides/speech-to-text)를 따릅니다.
 
 ## 요약 노트 파이프라인
 
-1. 노트 탭의 "노트 생성" / "노트 다시 생성" 버튼이 선택 입력인 요약 요청사항을 JSON `{ userPrompt?: string }`으로 `POST /api/meetings/[id]/summarize`에 전달합니다. 본문 생략과 빈 문자열은 기본 요약으로 처리하고, 잘못된 JSON이나 문자열이 아닌 요청사항은 400으로 거부합니다. 라우트는 전사 완료 여부와 진행 중 여부를 확인한 뒤 `after()`로 `runSummary(id, userPrompt)`를 예약합니다.
+1. 업로드·재전사가 완료되면 `runSummary(id)`를 자동 실행합니다. 요약 요청사항 없이 기본 지침을 적용하며, 재전사 후에도 기존 노트를 보존하고 새 버전을 추가합니다. 수동 생성·재시도는 노트 탭의 "노트 생성" / "노트 다시 생성" 버튼으로 실행하며, 선택 입력인 요약 요청사항을 JSON `{ userPrompt?: string }`으로 `POST /api/meetings/[id]/summarize`에 전달합니다. 본문 생략과 빈 문자열은 기본 요약으로 처리하고, 잘못된 JSON이나 문자열이 아닌 요청사항은 400으로 거부합니다. 라우트는 전사 완료 여부와 진행 중 여부를 확인한 뒤 `after()`로 `runSummary(id, userPrompt)`를 예약합니다.
 2. `runSummary`는 상태를 `generating`으로 바꾸고, 시스템 프롬프트(`summary-prompt.ts`)와 미팅 정보 + 용어 사전 + 전사본 + 선택 요청사항을 담은 사용자 메시지로 OpenAI chat completions를 한 번 호출합니다. 요청사항은 전사본과 분리해 강조점·관점·상세도에 반영하되, 사실성과 기본 출력 구조는 유지합니다. 입력은 현재 화면에서 유지하며 DB에는 저장하지 않습니다. 생성 시작 시 설정의 모델과 추론 수준을 읽어 사용합니다. 설정 화면에서 `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna`와 `low` / `medium` / `high` / `extra high`를 선택하면 자동 저장되고 다음 생성부터 적용됩니다. `extra high`는 API에 `xhigh`로 전달합니다. 저장값이 없으면 지원 모델에 해당하는 `OPENAI_SUMMARY_MODEL` 또는 `gpt-5.6-sol`, 추론 수준 `high`를 사용합니다. `temperature`는 지정하지 않습니다. 재시도는 하지 않습니다. 실패하면 같은 입력으로 사용자가 버튼을 눌러 다시 시도합니다.
 3. 응답이 코드 펜스로 감싸져 오면 벗겨낸 뒤 `summary_versions`에 새 버전(v1, v2, …)으로 추가하고 상태를 `done`으로 바꿉니다. 실패하면 `failed`와 오류 메시지를 저장합니다.
 4. 노트 탭의 클라이언트 컴포넌트가 `generating` 동안 3초마다 폴링하다가 상태가 바뀌면 `?v` 없는 URL로 바꾸고 `router.refresh()`해 최신 버전을 보여줍니다. 노트 본문은 서버 컴포넌트에서 마크다운으로 렌더링해 children으로 넘깁니다.
