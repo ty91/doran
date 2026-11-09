@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, RefreshCw } from "lucide-react";
+import { withBasePath } from "@/lib/base-path";
 import type { Meeting, TranscriptionStatus } from "@/lib/types";
 
 const pollIntervalMs = 3000;
@@ -23,7 +24,7 @@ export function TranscriptPanel({ meeting }: { meeting: Meeting }) {
     let cancelled = false;
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/meetings/${meeting.id}`, { cache: "no-store" });
+        const res = await fetch(withBasePath(`/api/meetings/${meeting.id}`), { cache: "no-store" });
         if (!res.ok) return;
         const latest = (await res.json()) as Meeting;
         if (!cancelled && JSON.stringify(latest.transcription) !== snapshot) {
@@ -43,7 +44,9 @@ export function TranscriptPanel({ meeting }: { meeting: Meeting }) {
     setRetrying(true);
     setRetryError(null);
     try {
-      const res = await fetch(`/api/meetings/${meeting.id}/transcribe`, { method: "POST" });
+      const res = await fetch(withBasePath(`/api/meetings/${meeting.id}/transcribe`), {
+        method: "POST",
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `재요청 실패 (${res.status})`);

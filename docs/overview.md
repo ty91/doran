@@ -27,7 +27,7 @@ Doran은 미팅 녹음 파일을 올리면 전사본과 요약 노트를 만들�
 ## 실행
 
 ```sh
-pnpm dev        # 0.0.0.0:3000 바인딩, Tailscale 접근 가능
+pnpm dev        # 0.0.0.0:3000 바인딩, http://localhost:3000/doran 으로 접속
 pnpm build && pnpm start
 pnpm lint       # oxlint
 pnpm format     # oxfmt (--check는 format:check)

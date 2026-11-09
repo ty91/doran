@@ -4,6 +4,7 @@ import { FileAudio, FileText, NotebookPen } from "lucide-react";
 import { Markdown } from "@/components/markdown";
 import { TranscriptionBadge } from "@/components/transcription-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { withBasePath } from "@/lib/base-path";
 import { getMeeting, getSummaryVersionContent, listSummaryVersions } from "@/lib/meetings";
 import { MeetingHeader } from "./meeting-header";
 import { MeetingMeta } from "./meeting-meta";
@@ -87,7 +88,7 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
                 <audio
                   controls
                   preload="metadata"
-                  src={`/api/meetings/${meeting.id}/audio`}
+                  src={withBasePath(`/api/meetings/${meeting.id}/audio`)}
                   className="w-full"
                 />
               </div>

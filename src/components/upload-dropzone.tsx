@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileAudio, Loader2, Upload } from "lucide-react";
+import { withBasePath } from "@/lib/base-path";
 
 type UploadState =
   | { phase: "idle" }
@@ -24,7 +25,7 @@ function uploadFile(file: File, onProgress: (ratio: number) => void): Promise<{ 
     form.append("date", localIsoDate(file.lastModified || Date.now()));
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/meetings");
+    xhr.open("POST", withBasePath("/api/meetings"));
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total);
     };

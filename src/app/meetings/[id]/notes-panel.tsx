@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { withBasePath } from "@/lib/base-path";
 import { buildMeetingMarkdown } from "@/lib/meeting-markdown";
 import { markdownToSlackHtml, markdownToSlackText } from "@/lib/slack-clipboard";
 import type { Meeting, SummaryVersion } from "@/lib/types";
@@ -66,7 +67,7 @@ export function NotesPanel({
     let cancelled = false;
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/meetings/${meeting.id}`, { cache: "no-store" });
+        const res = await fetch(withBasePath(`/api/meetings/${meeting.id}`), { cache: "no-store" });
         if (!res.ok) return;
         const latest = (await res.json()) as Meeting;
         if (!cancelled && JSON.stringify(latest.summarization) !== snapshot) {
@@ -110,7 +111,7 @@ export function NotesPanel({
     setRequesting(true);
     setRequestError(null);
     try {
-      const res = await fetch(`/api/meetings/${meeting.id}/summarize`, {
+      const res = await fetch(withBasePath(`/api/meetings/${meeting.id}/summarize`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userPrompt }),

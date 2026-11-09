@@ -28,6 +28,7 @@
 - **편집 가능한 클라이언트 컴포넌트**: 서버에서 받은 값으로 로컬 상태를 초기화하고, 변경 시 서버 액션을 `startTransition`으로 호출합니다. 부모에서 `key`로 리마운트시키지 않습니다. 저장 후 리렌더로 입력 중인 값이 사라집니다.
 - **삭제 확인**: `confirm()` 같은 브라우저 다이얼로그 대신 두 단계 버튼(삭제 → 정말 삭제)을 씁니다.
 - **동적 페이지**: DB를 읽는 페이지는 `export const dynamic = "force-dynamic"`을 선언합니다.
+- **basePath**: 앱은 `/doran` 아래에서 서빙됩니다. `Link`, `useRouter`, `redirect`, `revalidatePath`는 basePath를 알아서 처리하므로 경로를 그대로 씁니다. `fetch`, `XMLHttpRequest`, `<audio src>`처럼 브라우저가 직접 요청하는 URL은 `withBasePath()`로 감쌉니다.
 - **라우트 타입**: 페이지와 라우트 핸들러는 Next가 생성하는 `PageProps<"/path">`, `RouteContext<"/path">`를 씁니다. `params`는 Promise이므로 `await`합니다.
 - **에러 재던지기**: 원인을 감싸서 던질 때는 `new Error(message, { cause })`를 씁니다.
 - **Slack 복사**: HTML과 일반 텍스트를 만들기 전에 NFC로 정규화합니다. 파일명에서 들어온 분해 한글은 Slack 붙여넣기에서 뒤쪽 굵게 서식과 불릿을 어긋나게 합니다. 섹션 사이의 빈 줄은 HTML의 개행만으로 유지되지 않으므로 빈 문단으로 전달합니다. `node --test tests/slack-clipboard.test.mjs`로 정규화와 섹션 간격을 검증하며, 실제 Slack 붙여넣기는 별도로 확인합니다.
